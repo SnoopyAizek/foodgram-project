@@ -7,3 +7,4 @@ django-extra-fields==3.0.2
 Pillow==9.5.0
 django-filter==23.2
 django-cors-headers==4.0.0
+progress==1.6
