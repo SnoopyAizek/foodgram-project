@@ -2,7 +2,7 @@ import csv
 import json
 import os
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
 from progress.bar import IncrementalBar
 
 from foodgram.settings import BASE_DIR
@@ -19,8 +19,16 @@ def ingredient_create(name_obj: str, measurement_unit_obj: str):
 class Command(BaseCommand):
     help = "Load ingredients to DB"
 
+    def add_arguments(self, parser: CommandParser) -> None:
+        parser.add_argument(
+            '-fp', '--file_path', type=str,
+            help=f'Indicates which directory to take the file from, otherwise take from {BASE_DIR}')
+
     def handle(self, *args, **options):
-        path = os.path.join(BASE_DIR, 'ingredients')
+        file_path = options['file_path']
+        if not file_path:
+            file_path = BASE_DIR
+        path = os.path.join(file_path, 'ingredients')
         if os.path.exists(f'{path}.csv'):
             with open(f'{path}.csv', 'r', encoding='utf-8') as file:
                 amount_of_elements = sum(1 for row in file)
@@ -48,4 +56,5 @@ class Command(BaseCommand):
                 self.stdout.write(
                     "The ingredients has been loaded successfully.")
         else:
-            self.stdout.write(f'No file with ingredients found on the path {BASE_DIR}')
+            self.stdout.write(
+                f'No file with ingredients found on the path {file_path}')
