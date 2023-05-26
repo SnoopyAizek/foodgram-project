@@ -23,10 +23,10 @@ class UserReadSerializer(UserSerializer):
         read_only_fields = ('is_subscribed',)
 
     def get_is_subscribed(self, obj):
-        user = self.context.get('request').user
-        if user.is_anonymous or (user == obj):
-            return False
-        return user.following.filter(author=obj).exists()
+        if (self.context.get('request') and not self.context['request'].user.is_anonymous):
+            return Subscribe.objects.filter(following=self.context['request'].user,
+                                            author=obj).exists()
+        return False
 
 
 class UserCreateSerializer(UserCreateSerializer):

@@ -57,7 +57,7 @@ class UserViewSet(mixins.CreateModelMixin,
             permission_classes=(AuthenticatedNoBan,),
             pagination_class=LimitOffsetPagination)
     def subscriptions(self, request):
-        queryset = User.objects.filter(subscribing__user=request.user)
+        queryset = User.objects.filter(follower__following=request.user)
         page = self.paginate_queryset(queryset)
         serializer = SubscriptionsSerializer(page, many=True, context={'request': request})
         return self.get_paginated_response(serializer.data)
@@ -112,12 +112,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeReadSerializer
         return RecipeCreateSerializer
 
-    @action(detail=True, methods=['post', 'delete'],
+    @action(detail=True, methods=['get', 'delete'],
             permission_classes=(AuthenticatedNoBan,))
     def favorite(self, request, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['pk'])
 
-        if request.method == 'POST':
+        if request.method == 'GET':
             serializer = RecipeSerializer(recipe, data=request.data,
                                           context={"request": request})
             serializer.is_valid(raise_exception=True)
@@ -135,13 +135,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Рецепт успешно удален из избранного.'},
                             status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post', 'delete'],
+    @action(detail=True, methods=['get', 'delete'],
             permission_classes=(AuthenticatedNoBan,),
             pagination_class=None)
     def shopping_cart(self, request, **kwargs):
         recipe = get_object_or_404(Recipe, id=kwargs['pk'])
 
-        if request.method == 'POST':
+        if request.method == 'GET':
             serializer = RecipeSerializer(recipe, data=request.data,
                                           context={"request": request})
             serializer.is_valid(raise_exception=True)

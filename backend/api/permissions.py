@@ -9,6 +9,6 @@ class BanPermission(BasePermission):
 
 class AuthenticatedNoBan(BanPermission):
     def has_permission(self, request, view):
-        if request.user.is_authenticated:
+        if request.user.is_anonymous:
             raise UnauthorizedUser
         return True
