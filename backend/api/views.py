@@ -3,19 +3,18 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
+from foodgram.settings import FILE_NAME
+from recipes.models import (Favorite, Ingredient, Recipe, Recipe_ingredient,
+                            Shopping_cart, Tag)
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-
-from foodgram.settings import FILE_NAME
-from recipes.models import (Favorite, Ingredient, Recipe, Recipe_ingredient,
-                            Shopping_cart, Tag)
 from users.models import Subscribe
 
 from .filters import RecipeFilter
-from .permissions import AuthenticatedNoBan
+from .permissions import AuthenticatedNoBan, AuthorNoBanOrAdmin
 from .serializers import (IngredientSerializer, RecipeCreateSerializer,
                           RecipeReadSerializer, RecipeSerializer,
                           SetPasswordSerializer, SubscribeAuthorSerializer,
@@ -32,6 +31,11 @@ class UserViewSet(mixins.CreateModelMixin,
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     pagination_class = LimitOffsetPagination
+
+    def get_permissions(self):
+        if self.action == 'retrieve':
+            return (AuthenticatedNoBan(),)
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve'):
@@ -59,23 +63,27 @@ class UserViewSet(mixins.CreateModelMixin,
     def subscriptions(self, request):
         queryset = User.objects.filter(follower__following=request.user)
         page = self.paginate_queryset(queryset)
-        serializer = SubscriptionsSerializer(page, many=True, context={'request': request})
+        serializer = SubscriptionsSerializer(
+            page, many=True, context={'request': request})
         return self.get_paginated_response(serializer.data)
 
-    @action(detail=True, methods=['post', 'delete'],
+    @action(detail=True, methods=['get', 'delete'],
             permission_classes=(AuthenticatedNoBan,))
     def subscribe(self, request, **kwargs):
         author = get_object_or_404(User, id=kwargs['pk'])
 
-        if request.method == 'POST':
+        if request.method == 'GET':
             serializer = SubscribeAuthorSerializer(
                 author, data=request.data, context={"request": request})
             serializer.is_valid(raise_exception=True)
-            Subscribe.objects.create(user=request.user, author=author)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            if not Subscribe.objects.filter(following=request.user, author=author).exists() and author != request.user:
+                Subscribe.objects.create(following=request.user, author=author)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({'errors': 'Ошибка подписки.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if request.method == 'DELETE':
-            get_object_or_404(Subscribe, user=request.user, author=author).delete()
+            get_object_or_404(Subscribe, following=request.user,
+                              author=author).delete()
             return Response({'detail': 'Успешная отписка'}, status=status.HTTP_204_NO_CONTENT)
 
 
@@ -102,10 +110,15 @@ class TagViewSet(mixins.ListModelMixin,
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     pagination_class = LimitOffsetPagination
-    permission_classes = (AuthenticatedNoBan, )
+    permission_classes = (AllowAny, )
     filter_backends = (DjangoFilterBackend, )
     filterset_class = RecipeFilter
-    http_method_names = ['get', 'post', 'patch', 'create', 'delete']
+    http_method_names = ['get', 'post', 'patch', 'create', 'delete', 'put']
+
+    def get_permissions(self):
+        if self.action in ('destroy', 'update'):
+            return (AuthorNoBanOrAdmin(),)
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve'):

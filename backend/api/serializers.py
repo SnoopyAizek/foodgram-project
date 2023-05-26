@@ -4,10 +4,10 @@ from django.core import exceptions
 from django.db.transaction import atomic
 from djoser.serializers import UserCreateSerializer, UserSerializer
 from drf_extra_fields.fields import Base64ImageField
-from rest_framework import serializers
-
+from foodgram.exceptions import UnauthorizedUser
 from recipes.models import (Favorite, Ingredient, Recipe, Recipe_ingredient,
                             Shopping_cart, Tag)
+from rest_framework import serializers
 from users.models import Subscribe
 
 User = get_user_model()
@@ -124,6 +124,8 @@ class SubscriptionsSerializer(serializers.ModelSerializer):
 class SubscribeAuthorSerializer(serializers.ModelSerializer):
     email = serializers.ReadOnlyField()
     username = serializers.ReadOnlyField()
+    first_name = serializers.ReadOnlyField()
+    last_name = serializers.ReadOnlyField()
     is_subscribed = serializers.SerializerMethodField()
     recipes = RecipeSerializer(many=True, read_only=True)
     recipes_count = serializers.SerializerMethodField()
@@ -134,12 +136,6 @@ class SubscribeAuthorSerializer(serializers.ModelSerializer):
                   'username', 'first_name',
                   'last_name', 'is_subscribed',
                   'recipes', 'recipes_count')
-
-    def validate(self, obj):
-        if (self.context['request'].user == obj):
-            raise serializers.ValidationError(
-                {'errors': 'Ошибка подписки.'})
-        return obj
 
     def get_is_subscribed(self, obj):
         return (
@@ -272,6 +268,8 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
     @atomic
     def create(self, validated_data):
+        if self.context['request'].user.is_anonymous:
+            raise UnauthorizedUser
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('ingredients')
         recipe = Recipe.objects.create(author=self.context['request'].user,

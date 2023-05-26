@@ -1,5 +1,5 @@
-from rest_framework.permissions import SAFE_METHODS, BasePermission
 from foodgram.exceptions import UnauthorizedUser
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 class BanPermission(BasePermission):
@@ -12,3 +12,8 @@ class AuthenticatedNoBan(BanPermission):
         if request.user.is_anonymous:
             raise UnauthorizedUser
         return True
+
+
+class AuthorNoBanOrAdmin(BanPermission):
+    def has_object_permission(self, request, view, obj):
+        return (obj.author == request.user or request.user.is_staff)
