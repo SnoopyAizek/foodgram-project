@@ -154,3 +154,4 @@ CORS_ORIGIN_ALLOW_ALL = True
 CORS_URLS_REGEX = r'^/api/.*$'
 
 FILE_NAME = 'shopping_cart.txt'
+FILE_NAME_PDF = 'shopping_cart.pdf'

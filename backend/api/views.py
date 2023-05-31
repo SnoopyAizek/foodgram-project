@@ -8,7 +8,7 @@ from recipes.models import (Favorite, Ingredient, Recipe, Recipe_ingredient,
                             Shopping_cart, Tag)
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from users.models import Subscribe
@@ -30,7 +30,8 @@ class UserViewSet(mixins.CreateModelMixin,
                   viewsets.GenericViewSet):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
-    pagination_class = LimitOffsetPagination
+    pagination_class = PageNumberPagination
+    page_size_query_param = 'limit'
 
     def get_permissions(self):
         if self.action == 'retrieve':
@@ -59,7 +60,8 @@ class UserViewSet(mixins.CreateModelMixin,
 
     @action(detail=False, methods=['get'],
             permission_classes=(AuthenticatedNoBan,),
-            pagination_class=LimitOffsetPagination)
+            pagination_class=PageNumberPagination,
+            page_size_query_param='limit')
     def subscriptions(self, request):
         queryset = User.objects.filter(follower__following=request.user)
         page = self.paginate_queryset(queryset)
@@ -109,7 +111,8 @@ class TagViewSet(mixins.ListModelMixin,
 
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
-    pagination_class = LimitOffsetPagination
+    pagination_class = PageNumberPagination
+    page_size_query_param = 'limit'
     permission_classes = (AllowAny, )
     filter_backends = (DjangoFilterBackend, )
     filterset_class = RecipeFilter
