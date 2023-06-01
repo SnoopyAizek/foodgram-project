@@ -1,11 +1,18 @@
+import io
+
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from foodgram.settings import FILE_NAME
+from foodgram.settings import FILE_NAME, FILE_NAME_PDF, FONTS_ROOT
 from recipes.models import (Favorite, Ingredient, Recipe, Recipe_ingredient,
                             Shopping_cart, Tag)
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -195,3 +202,35 @@ class RecipeViewSet(viewsets.ModelViewSet):
                             content_type='text/plain')
         file['Content-Disposition'] = (f'attachment; filename={FILE_NAME}')
         return file
+
+    @action(detail=False, methods=['get'],
+            permission_classes=(AuthenticatedNoBan,))
+    def download_shopping_cart_pdf(self, request, **kwargs):
+        ingredients = (
+            Recipe_ingredient.objects
+            .filter(recipe__shopping_recipe__user=request.user)
+            .values('ingredient')
+            .annotate(total_amount=Sum('amount'))
+            .values_list('ingredient__name', 'total_amount',
+                         'ingredient__measurement_unit')
+        )
+        file_list = []
+        [file_list.append(
+            '{} - {} {}.'.format(*ingredient)) for ingredient in ingredients]
+        buffer = io.BytesIO()
+        pdf_file = Canvas(buffer, pagesize=A4)
+        pdfmetrics.registerFont(
+            TTFont('DejaVuSans', f'{FONTS_ROOT}/DejaVuSans.ttf'))
+        pdf_file.setFont("DejaVuSans", 12)
+        pdf_file.drawString(cm, 770, 'Cписок покупок:')
+        pos_y = 750
+        for ingredient in file_list:
+            pdf_file.drawString(cm, pos_y, ingredient)
+            pos_y -= 15
+            if pos_y == 15:
+                pdf_file.showPage()
+                pos_y = 750
+        pdf_file.showPage()
+        pdf_file.save()
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename=FILE_NAME_PDF)

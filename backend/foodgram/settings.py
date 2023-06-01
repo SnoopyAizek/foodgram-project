@@ -155,3 +155,4 @@ CORS_URLS_REGEX = r'^/api/.*$'
 
 FILE_NAME = 'shopping_cart.txt'
 FILE_NAME_PDF = 'shopping_cart.pdf'
+FONTS_ROOT = os.path.join(BASE_DIR, 'fonts')
